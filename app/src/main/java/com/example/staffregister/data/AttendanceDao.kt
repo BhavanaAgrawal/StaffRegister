@@ -13,6 +13,9 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE staffId = :staffId ORDER BY date DESC")
     fun getAttendanceForStaff(staffId: Long): Flow<List<Attendance>>
 
+    @Query("SELECT * FROM attendance WHERE staffId = :staffId ORDER BY date DESC")
+    suspend fun getAttendanceListForStaff(staffId: Long): List<Attendance>
+
     @Query("SELECT * FROM attendance WHERE id = :id")
     suspend fun getAttendanceById(id: Long): Attendance?
 

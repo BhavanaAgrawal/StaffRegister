@@ -1,14 +1,18 @@
 package com.example.staffregister.ui.staff
 
+import android.app.DatePickerDialog
+import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AddAPhoto
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,14 +20,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-
-import androidx.compose.ui.tooling.preview.Preview
 import com.example.staffregister.ui.theme.StaffRegisterTheme
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,14 +68,18 @@ fun StaffDetailScreen(
         onRoleChange = { viewModel.role = it },
         contact = viewModel.contact,
         onContactChange = { viewModel.contact = it },
-       // credentials = viewModel.credentials,
-       // onCredentialsChange = { viewModel.credentials = it },
         dailyRate = viewModel.dailyRate,
+        monthlyRate = viewModel.monthlyRate,
+        joiningDate = viewModel.joiningDate,
         onDailyRateChange = { viewModel.dailyRate = it },
+        onMonthlyRateChange = { viewModel.monthlyRate = it },
+        onJoiningDateChange = { viewModel.joiningDate = it },
         photoUri = viewModel.photoUri,
         onPhotoClick = { showCamera = true },
         onSaveClick = { viewModel.saveStaff(onSaveSuccess) },
-        onBack = onBack
+        onBack = onBack,
+        credentials = viewModel.credentials,
+        onCredentialsChange = { viewModel.credentials = it }
     )
 }
 
@@ -78,16 +92,24 @@ fun StaffDetailContent(
     onRoleChange: (String) -> Unit,
     contact: String,
     onContactChange: (String) -> Unit,
-    credentials: String,
-    onCredentialsChange: (String) -> Unit,
     dailyRate: String,
     monthlyRate: String,
+    joiningDate: Long,
     onDailyRateChange: (String) -> Unit,
+    onMonthlyRateChange: (String) -> Unit,
+    onJoiningDateChange: (Long) -> Unit,
     photoUri: String?,
     onPhotoClick: () -> Unit,
     onSaveClick: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    credentials: String = "",
+    onCredentialsChange: (String) -> Unit = {}
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -149,40 +171,103 @@ fun StaffDetailContent(
                 value = name,
                 onValueChange = onNameChange,
                 label = { Text("Full Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
 
             OutlinedTextField(
                 value = role,
                 onValueChange = onRoleChange,
                 label = { Text("Job Role") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
 
             OutlinedTextField(
                 value = contact,
                 onValueChange = onContactChange,
                 label = { Text("Contact Information") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-          /*  OutlinedTextField(
-                value = credentials,
-                onValueChange = onCredentialsChange,
-                label = { Text("Credentials / Qualifications") },
                 modifier = Modifier.fillMaxWidth(),
-                minLines = 3
-            )*/
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Next
+                )
+            )
 
             OutlinedTextField(
                 value = monthlyRate,
-                onValueChange = onDailyRateChange,
+                onValueChange = onMonthlyRateChange,
                 label = { Text("Monthly Rate (₹)") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
+                )
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            OutlinedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        val cal = Calendar.getInstance().apply { timeInMillis = joiningDate }
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                val newCal = Calendar.getInstance().apply {
+                                    set(Calendar.YEAR, year)
+                                    set(Calendar.MONTH, month)
+                                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                }
+                                onJoiningDateChange(newCal.timeInMillis)
+                            },
+                            cal.get(Calendar.YEAR),
+                            cal.get(Calendar.MONTH),
+                            cal.get(Calendar.DAY_OF_MONTH)
+                        ).show()
+                    }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("Joining Date", style = MaterialTheme.typography.labelSmall)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = dateFormat.format(Date(joiningDate)),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "SELECT",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            Icons.Rounded.CalendarMonth,
+                            contentDescription = "Select Joining Date",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = onSaveClick,
@@ -206,11 +291,12 @@ fun StaffDetailScreenAddPreview() {
             onRoleChange = {},
             contact = "",
             onContactChange = {},
-            credentials = "",
-            onCredentialsChange = {},
             dailyRate = "",
             monthlyRate = "",
+            joiningDate = System.currentTimeMillis(),
             onDailyRateChange = {},
+            onMonthlyRateChange = {},
+            onJoiningDateChange = {},
             photoUri = null,
             onPhotoClick = {},
             onSaveClick = {},
@@ -219,7 +305,8 @@ fun StaffDetailScreenAddPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(name = "Light Mode", showBackground = true, showSystemUi = true)
+@Preview(name = "Dark Mode", showBackground = true, showSystemUi = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun StaffDetailScreenEditPreview() {
     StaffRegisterTheme {
@@ -230,11 +317,12 @@ fun StaffDetailScreenEditPreview() {
             onRoleChange = {},
             contact = "+1 555-0199",
             onContactChange = {},
-            credentials = "B.Des in UI/UX Design",
-            onCredentialsChange = {},
             dailyRate = "150.00",
-            monthlyRate="4000",
+            monthlyRate = "4000",
+            joiningDate = System.currentTimeMillis(),
             onDailyRateChange = {},
+            onMonthlyRateChange = {},
+            onJoiningDateChange = {},
             photoUri = null,
             onPhotoClick = {},
             onSaveClick = {},

@@ -11,5 +11,7 @@ data class Staff(
     val contact: String,
     val credentials: String,
     val photoUri: String? = null,
-    val dailyRate: Double = 0.0
+    val dailyRate: Double = 0.0,
+    val monthlyRate: Double = 0.0,
+    val joiningDate: Long = System.currentTimeMillis()
 )

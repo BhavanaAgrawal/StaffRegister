@@ -1,5 +1,6 @@
 package com.example.staffregister.ui.staff
 
+import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -165,7 +166,8 @@ fun StaffItemPreview() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(name = "Light Mode", showBackground = true, showSystemUi = true)
+@Preview(name = "Dark Mode", showBackground = true, showSystemUi = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun StaffListScreenPreview() {
     StaffRegisterTheme {

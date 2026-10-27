@@ -1,5 +1,6 @@
 package com.example.staffregister.ui.staff
 
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -21,8 +22,10 @@ class StaffDetailViewModel(
     var credentials by mutableStateOf("")
     var photoUri by mutableStateOf<String?>(null)
     var dailyRate by mutableStateOf("")
+    var monthlyRate by mutableStateOf("")
+    var joiningDate by mutableStateOf(System.currentTimeMillis())
 
-    fun updatePhoto(uri: android.net.Uri) {
+    fun updatePhoto(uri: Uri) {
         photoUri = uri.toString()
     }
 
@@ -35,14 +38,16 @@ class StaffDetailViewModel(
                     contact = staff.contact
                     credentials = staff.credentials
                     photoUri = staff.photoUri
-                    dailyRate = staff.dailyRate.toString()
+                    monthlyRate = staff.monthlyRate.toString()
+                    joiningDate = staff.joiningDate
                 }
             }
         }
     }
 
     fun saveStaff(onSuccess: () -> Unit) {
-        val rate = dailyRate.toDoubleOrNull() ?: 0.0
+        val rate = monthlyRate.toDoubleOrNull() ?: 0.0
+        val computedDailyRate = if (rate > 0) rate / 30.0 else 0.0
         val staff = Staff(
             id = staffId ?: 0,
             name = name,
@@ -50,7 +55,9 @@ class StaffDetailViewModel(
             contact = contact,
             credentials = credentials,
             photoUri = photoUri,
-            dailyRate = rate
+            dailyRate = computedDailyRate,
+            monthlyRate = rate,
+            joiningDate = joiningDate
         )
         viewModelScope.launch {
             if (staffId == null) {
