@@ -81,7 +81,9 @@ fun CameraPreview(onPhotoCaptured: (Uri) -> Unit) {
 
         IconButton(
             onClick = {
-                val file = File(context.cacheDir, "${System.currentTimeMillis()}.jpg")
+                val fileDir = File(context.filesDir, "staff_photos")
+                if (!fileDir.exists()) fileDir.mkdirs()
+                val file = File(fileDir, "staff_${System.currentTimeMillis()}.jpg")
                 val outputOptions = ImageCapture.OutputFileOptions.Builder(file).build()
                 imageCapture.takePicture(
                     outputOptions,

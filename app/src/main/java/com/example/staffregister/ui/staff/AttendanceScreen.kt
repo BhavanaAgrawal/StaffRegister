@@ -383,8 +383,11 @@ fun SalaryAndPaymentsView(
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     val joiningDateStr = staff?.let { dateFormat.format(Date(it.joiningDate)) } ?: "N/A"
 
-    val totalPending = monthlySalaryRecords.filter { !it.isPaid }.sumOf { it.netPayable }
-    val totalPaid = monthlySalaryRecords.filter { it.isPaid }.sumOf { it.amountPaid }
+    val lastRecord = monthlySalaryRecords.firstOrNull()
+    val totalPending = lastRecord?.let { 
+        if (it.isPaid) it.netPayable - it.amountPaid else it.netPayable 
+    } ?: 0.0
+    val totalPaid = monthlySalaryRecords.sumOf { it.amountPaid }
 
     var selectedRecordForPayment by remember { mutableStateOf<MonthlySalaryRecord?>(null) }
 

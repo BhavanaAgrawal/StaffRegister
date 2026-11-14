@@ -195,12 +195,33 @@ fun StaffDetailContent(
             )
 
             OutlinedTextField(
+                value = dailyRate,
+                onValueChange = onDailyRateChange,
+                label = { Text("Daily Rate (₹)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next
+                )
+            )
+
+            OutlinedTextField(
                 value = monthlyRate,
                 onValueChange = onMonthlyRateChange,
                 label = { Text("Monthly Rate (₹)") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Next
+                )
+            )
+            
+            OutlinedTextField(
+                value = credentials,
+                onValueChange = onCredentialsChange,
+                label = { Text("Credentials / Notes") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(

@@ -101,7 +101,24 @@ class AttendanceViewModel(
 
     fun markSalaryPaid(record: MonthlySalaryRecord, amountPaid: Double, notes: String = "") {
         viewModelScope.launch {
-            repository.markSalaryPaid(staffId, record.year, record.month, amountPaid, notes)
+            var remainingPayment = amountPaid
+            val chronologicalRecords = monthlySalaryRecords.value.sortedWith(compareBy({ it.year }, { it.month }))
+            
+            for (r in chronologicalRecords) {
+                if (!r.isPaid && (r.year < record.year || (r.year == record.year && r.month <= record.month))) {
+                    val isTargetMonth = (r.year == record.year && r.month == record.month)
+                    val amountDueForThisMonth = maxOf(0.0, r.grossSalary - r.advanceDeducted)
+                    
+                    val paymentForThisMonth = if (isTargetMonth) {
+                        remainingPayment 
+                    } else {
+                        if (remainingPayment >= amountDueForThisMonth) amountDueForThisMonth else remainingPayment
+                    }
+                    
+                    repository.markSalaryPaid(staffId, r.year, r.month, paymentForThisMonth, notes)
+                    remainingPayment -= paymentForThisMonth
+                }
+            }
         }
     }
 

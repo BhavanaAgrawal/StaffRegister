@@ -2,6 +2,7 @@ package com.example.staffregister.data
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -150,11 +151,20 @@ class StaffRepository(
             val currentMonth = calendar.get(Calendar.MONTH)
             val today = calendar.get(Calendar.DAY_OF_MONTH)
 
-            val joinCal = Calendar.getInstance().apply {
-                timeInMillis = if (staff.joiningDate > 0) staff.joiningDate else System.currentTimeMillis()
-            }
-            var startYear = joinCal.get(Calendar.YEAR)
-            var startMonth = joinCal.get(Calendar.MONTH)
+            val joinDate = if (staff.joiningDate > 0) staff.joiningDate else System.currentTimeMillis()
+            
+            val earliestAdvance = advanceList.minOfOrNull { it.date }
+            val earliestAttendance = attendanceList.minOfOrNull { it.date }
+            
+            val earliestDate = listOfNotNull(
+                joinDate,
+                earliestAdvance,
+                earliestAttendance
+            ).minOrNull() ?: joinDate
+
+            val startCal = Calendar.getInstance().apply { timeInMillis = earliestDate }
+            var startYear = startCal.get(Calendar.YEAR)
+            var startMonth = startCal.get(Calendar.MONTH)
 
             if (startYear > currentYear || (startYear == currentYear && startMonth > currentMonth)) {
                 startYear = currentYear
@@ -192,12 +202,14 @@ class StaffRepository(
                 val dailyRate = if (staff.dailyRate > 0) staff.dailyRate
                                 else if (staff.monthlyRate > 0) staff.monthlyRate / 30.0
                                 else 0.0
-                val dailyrate1=staff.monthlyRate/30.0
 
-                val grossSalary = daysWorked * dailyRate
-                val grossSalary1 = if (daysAbsent == 0)staff.monthlyRate
-                                    else if(daysAbsent > 0)(staff.monthlyRate - daysAbsent*dailyrate1)
-                                        else 0.0
+                val calculatedGrossSalary = if (staff.dailyRate > 0) {
+                    daysWorked * staff.dailyRate
+                } else {
+                    if (daysAbsent == 0) staff.monthlyRate
+                    else if (daysAbsent > 0) maxOf(0.0, staff.monthlyRate - daysAbsent * dailyRate)
+                    else 0.0
+                }
 
                 val advanceRecords = advanceList.filter { adv ->
                     tempCal.apply { timeInMillis = adv.date }.run {
@@ -207,7 +219,7 @@ class StaffRepository(
                 val advanceDeducted = advanceRecords.sumOf { it.amount }
 
                 val carryForward = accumulatedCarryForward
-                val netPayable = grossSalary1 - advanceDeducted + carryForward
+                val netPayable = calculatedGrossSalary - advanceDeducted + carryForward
 
                 val payment = paymentList.find { it.year == iterYear && it.month == iterMonth }
                 val isPaid = payment?.isPaid ?: false
@@ -232,7 +244,7 @@ class StaffRepository(
                         daysInMonth = daysInMonth,
                         daysWorked = daysWorked,
                         daysAbsent = daysAbsent,
-                        grossSalary = grossSalary1,
+                        grossSalary = calculatedGrossSalary,
                         advanceDeducted = advanceDeducted,
                         carryForwardFromPrevious = carryForward,
                         netPayable = netPayable,
@@ -255,48 +267,25 @@ class StaffRepository(
     }
 
     fun getMonthlyStats(staffId: Long, dailyRate: Double): Flow<MonthlyStats> {
-        return combine(
-            attendanceDao.getAttendanceForStaff(staffId),
-            advanceDao.getAdvanceForStaff(staffId)
-        ) { attendanceList, advanceList ->
-            val calendar = Calendar.getInstance()
-            val currentMonth = calendar.get(Calendar.MONTH)
-            val currentYear = calendar.get(Calendar.YEAR)
-            val today = calendar.get(Calendar.DAY_OF_MONTH)
-
-            val thisMonthAbsentRecords = attendanceList.filter {
-                calendar.timeInMillis = it.date
-                !it.isPresent &&
-                        calendar.get(Calendar.MONTH) == currentMonth &&
-                        calendar.get(Calendar.YEAR) == currentYear
+        return getMonthlySalaryRecords(staffId).map { records ->
+            val currentRecord = records.firstOrNull()
+            if (currentRecord != null) {
+                MonthlyStats(
+                    daysPresent = currentRecord.daysWorked,
+                    daysAbsent = currentRecord.daysAbsent,
+                    totalSalary = currentRecord.grossSalary,
+                    totalAdvance = currentRecord.advanceDeducted - if (currentRecord.carryForwardFromPrevious < 0) currentRecord.carryForwardFromPrevious else 0.0,
+                    netSalary = currentRecord.netPayable
+                )
+            } else {
+                MonthlyStats(
+                    daysPresent = 0,
+                    daysAbsent = 0,
+                    totalSalary = 0.0,
+                    totalAdvance = 0.0,
+                    netSalary = 0.0
+                )
             }
-
-            val thisMonthAdvanceRecords = advanceList.filter {
-                calendar.timeInMillis = it.date
-                calendar.get(Calendar.MONTH) == currentMonth &&
-                        calendar.get(Calendar.YEAR) == currentYear
-            }
-
-            val daysAbsent = thisMonthAbsentRecords.sumOf { it.daysCount }
-            val daysPresent = maxOf(0, today - daysAbsent)
-
-            val totalSalary = daysPresent * dailyRate
-
-          //  val totalSalary1 =
-
-            val totalAdvance = thisMonthAdvanceRecords.sumOf { it.amount }
-
-            val netSalary = maxOf(0.0, totalSalary - totalAdvance)
-
-             val netSalary1 =  totalSalary - totalAdvance
-
-            MonthlyStats(
-                daysPresent = daysPresent,
-                daysAbsent = daysAbsent,
-                totalSalary = totalSalary,
-                totalAdvance = totalAdvance,
-                netSalary = netSalary1
-            )
         }
     }
 }
