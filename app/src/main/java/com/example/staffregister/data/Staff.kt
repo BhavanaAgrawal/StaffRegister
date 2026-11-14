@@ -13,5 +13,6 @@ data class Staff(
     val photoUri: String? = null,
     val dailyRate: Double = 0.0,
     val monthlyRate: Double = 0.0,
-    val joiningDate: Long = System.currentTimeMillis()
+    val joiningDate: Long = System.currentTimeMillis(),
+    val isActive: Boolean = true
 )

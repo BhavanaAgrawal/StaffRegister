@@ -9,8 +9,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+import kotlinx.coroutines.flow.map
+
 class StaffListViewModel(private val repository: StaffRepository) : ViewModel() {
-    val staffList: StateFlow<List<Staff>> = repository.allStaff
+    val activeStaffList: StateFlow<List<Staff>> = repository.allStaff
+        .map { list -> list.filter { it.isActive } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val exStaffList: StateFlow<List<Staff>> = repository.allStaff
+        .map { list -> list.filter { !it.isActive } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun deleteStaff(staff: Staff) {

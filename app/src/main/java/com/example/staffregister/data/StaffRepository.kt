@@ -199,16 +199,14 @@ class StaffRepository(
                 val elapsedDays = if (isCurrentMonth) today else daysInMonth
                 val daysWorked = maxOf(0, elapsedDays - daysAbsent)
 
-                val dailyRate = if (staff.dailyRate > 0) staff.dailyRate
-                                else if (staff.monthlyRate > 0) staff.monthlyRate / 30.0
-                                else 0.0
+                val dailyRate = if (staff.monthlyRate > 0) staff.monthlyRate / 30.0 else 0.0
 
-                val calculatedGrossSalary = if (staff.dailyRate > 0) {
-                    daysWorked * staff.dailyRate
+                val calculatedGrossSalary = if (daysAbsent == 0) {
+                    staff.monthlyRate
+                } else if (daysAbsent > 0) {
+                    maxOf(0.0, staff.monthlyRate - daysAbsent * dailyRate)
                 } else {
-                    if (daysAbsent == 0) staff.monthlyRate
-                    else if (daysAbsent > 0) maxOf(0.0, staff.monthlyRate - daysAbsent * dailyRate)
-                    else 0.0
+                    0.0
                 }
 
                 val advanceRecords = advanceList.filter { adv ->

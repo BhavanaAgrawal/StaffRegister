@@ -23,6 +23,10 @@ import androidx.compose.ui.unit.dp
 import com.example.staffregister.data.Staff
 import com.example.staffregister.ui.theme.StaffRegisterTheme
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+
 @Composable
 fun StaffListScreen(
     viewModel: StaffListViewModel,
@@ -30,10 +34,12 @@ fun StaffListScreen(
     onStaffClick: (Staff) -> Unit,
     onEditStaff: (Staff) -> Unit
 ) {
-    val staffList by viewModel.staffList.collectAsState()
+    val activeStaffList by viewModel.activeStaffList.collectAsState()
+    val exStaffList by viewModel.exStaffList.collectAsState()
 
     StaffListContent(
-        staffList = staffList,
+        activeStaffList = activeStaffList,
+        exStaffList = exStaffList,
         onAddStaff = onAddStaff,
         onStaffClick = onStaffClick,
         onEditStaff = onEditStaff
@@ -43,11 +49,14 @@ fun StaffListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StaffListContent(
-    staffList: List<Staff>,
+    activeStaffList: List<Staff>,
+    exStaffList: List<Staff>,
     onAddStaff: () -> Unit,
     onStaffClick: (Staff) -> Unit,
     onEditStaff: (Staff) -> Unit
 ) {
+    var selectedTabIndex by remember { mutableStateOf(0) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -64,29 +73,49 @@ fun StaffListContent(
             }
         }
     ) { padding ->
-        if (staffList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No staff registered yet.", style = MaterialTheme.typography.bodyLarge)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            TabRow(selectedTabIndex = selectedTabIndex) {
+                Tab(
+                    selected = selectedTabIndex == 0,
+                    onClick = { selectedTabIndex = 0 },
+                    text = { Text("Active Staff") }
+                )
+                Tab(
+                    selected = selectedTabIndex == 1,
+                    onClick = { selectedTabIndex = 1 },
+                    text = { Text("Ex-Staff") }
+                )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(staffList) { staff ->
-                    StaffItem(
-                        staff = staff,
-                        onClick = { onStaffClick(staff) },
-                        onEditClick = { onEditStaff(staff) }
+            
+            val currentList = if (selectedTabIndex == 0) activeStaffList else exStaffList
+
+            if (currentList.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        if (selectedTabIndex == 0) "No active staff registered." else "No ex-staff registered.", 
+                        style = MaterialTheme.typography.bodyLarge
                     )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(currentList) { staff ->
+                        StaffItem(
+                            staff = staff,
+                            onClick = { onStaffClick(staff) },
+                            onEditClick = { onEditStaff(staff) }
+                        )
+                    }
                 }
             }
         }
@@ -170,7 +199,8 @@ fun StaffItemPreview() {
                 role = "Software Engineer",
                 contact = "1234567890",
                 credentials = "BS Computer Science",
-                dailyRate = 25.0
+                monthlyRate = 2500.0,
+                isActive = true
             ),
             onClick = {},
             onEditClick = {}
@@ -184,9 +214,12 @@ fun StaffItemPreview() {
 fun StaffListScreenPreview() {
     StaffRegisterTheme {
         StaffListContent(
-            staffList = listOf(
-                Staff(id = 1, name = "Alice Smith", role = "Manager", contact = "1234567890", credentials = "MBA", dailyRate = 100.0),
-                Staff(id = 2, name = "Bob Jones", role = "Developer", contact = "0987654321", credentials = "BSc CS", dailyRate = 80.0)
+            activeStaffList = listOf(
+                Staff(id = 1, name = "Alice Smith", role = "Manager", contact = "1234567890", credentials = "MBA", monthlyRate = 10000.0, isActive = true),
+                Staff(id = 2, name = "Bob Jones", role = "Developer", contact = "0987654321", credentials = "BSc CS", monthlyRate = 8000.0, isActive = true)
+            ),
+            exStaffList = listOf(
+                Staff(id = 3, name = "Charlie Brown", role = "Tester", contact = "1122334455", credentials = "BA", monthlyRate = 5000.0, isActive = false)
             ),
             onAddStaff = {},
             onStaffClick = {},
@@ -200,7 +233,8 @@ fun StaffListScreenPreview() {
 fun StaffListScreenEmptyPreview() {
     StaffRegisterTheme {
         StaffListContent(
-            staffList = emptyList(),
+            activeStaffList = emptyList(),
+            exStaffList = emptyList(),
             onAddStaff = {},
             onStaffClick = {},
             onEditStaff = {}

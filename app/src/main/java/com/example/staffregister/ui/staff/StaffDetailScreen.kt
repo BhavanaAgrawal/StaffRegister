@@ -77,12 +77,12 @@ fun StaffDetailScreen(
         },
         contact = viewModel.contact,
         onContactChange = { viewModel.contact = it },
-        dailyRate = viewModel.dailyRate,
         monthlyRate = viewModel.monthlyRate,
         joiningDate = viewModel.joiningDate,
-        onDailyRateChange = { viewModel.dailyRate = it },
+        isActive = viewModel.isActive,
         onMonthlyRateChange = { viewModel.monthlyRate = it },
         onJoiningDateChange = { viewModel.joiningDate = it },
+        onIsActiveChange = { viewModel.isActive = it },
         photoUri = viewModel.photoUri,
         onPhotoClick = { showCamera = true },
         onSaveClick = { viewModel.saveStaff(onSaveSuccess) },
@@ -101,12 +101,12 @@ fun StaffDetailContent(
     onRoleChange: (String) -> Unit,
     contact: String,
     onContactChange: (String) -> Unit,
-    dailyRate: String,
     monthlyRate: String,
     joiningDate: Long,
-    onDailyRateChange: (String) -> Unit,
+    isActive: Boolean,
     onMonthlyRateChange: (String) -> Unit,
     onJoiningDateChange: (Long) -> Unit,
+    onIsActiveChange: (Boolean) -> Unit,
     photoUri: String?,
     onPhotoClick: () -> Unit,
     onSaveClick: () -> Unit,
@@ -210,17 +210,6 @@ fun StaffDetailContent(
             )
 
             OutlinedTextField(
-                value = dailyRate,
-                onValueChange = onDailyRateChange,
-                label = { Text("Daily Rate (₹)") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Decimal,
-                    imeAction = ImeAction.Next
-                )
-            )
-
-            OutlinedTextField(
                 value = monthlyRate,
                 onValueChange = onMonthlyRateChange,
                 label = { Text("Monthly Rate (₹)") },
@@ -303,6 +292,21 @@ fun StaffDetailContent(
                     }
                 }
             }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Active Staff",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = isActive,
+                    onCheckedChange = onIsActiveChange
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -328,12 +332,12 @@ fun StaffDetailScreenAddPreview() {
             onRoleChange = {},
             contact = "",
             onContactChange = {},
-            dailyRate = "",
             monthlyRate = "",
             joiningDate = System.currentTimeMillis(),
-            onDailyRateChange = {},
+            isActive = true,
             onMonthlyRateChange = {},
             onJoiningDateChange = {},
+            onIsActiveChange = {},
             photoUri = null,
             onPhotoClick = {},
             onSaveClick = {},
@@ -354,12 +358,12 @@ fun StaffDetailScreenEditPreview() {
             onRoleChange = {},
             contact = "+1 555-0199",
             onContactChange = {},
-            dailyRate = "150.00",
             monthlyRate = "4000",
             joiningDate = System.currentTimeMillis(),
-            onDailyRateChange = {},
+            isActive = true,
             onMonthlyRateChange = {},
             onJoiningDateChange = {},
+            onIsActiveChange = {},
             photoUri = null,
             onPhotoClick = {},
             onSaveClick = {},

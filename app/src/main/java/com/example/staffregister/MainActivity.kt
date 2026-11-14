@@ -52,9 +52,12 @@ fun MainContent() {
             entry<Route.StaffList> { _ ->
                 if (isPreview) {
                     StaffListContent(
-                        staffList = listOf(
-                            Staff(id = 1, name = "Alice Smith", role = "Manager", contact = "1234567890", credentials = "MBA", dailyRate = 100.0),
-                            Staff(id = 2, name = "Bob Jones", role = "Developer", contact = "0987654321", credentials = "BSc CS", dailyRate = 80.0)
+                        activeStaffList = listOf(
+                            Staff(id = 1, name = "Alice Smith", role = "Manager", contact = "1234567890", credentials = "MBA", monthlyRate = 10000.0, isActive = true),
+                            Staff(id = 2, name = "Bob Jones", role = "Developer", contact = "0987654321", credentials = "BSc CS", monthlyRate = 8000.0, isActive = true)
+                        ),
+                        exStaffList = listOf(
+                            Staff(id = 3, name = "Charlie Brown", role = "Tester", contact = "1122334455", credentials = "BA", monthlyRate = 5000.0, isActive = false)
                         ),
                         onAddStaff = {},
                         onStaffClick = {},

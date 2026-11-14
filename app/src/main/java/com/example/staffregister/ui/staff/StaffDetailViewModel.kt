@@ -21,9 +21,9 @@ class StaffDetailViewModel(
     var contact by mutableStateOf("")
     var credentials by mutableStateOf("")
     var photoUri by mutableStateOf<String?>(null)
-    var dailyRate by mutableStateOf("")
     var monthlyRate by mutableStateOf("")
     var joiningDate by mutableStateOf(System.currentTimeMillis())
+    var isActive by mutableStateOf(true)
 
     fun updatePhoto(uri: Uri) {
         photoUri = uri.toString()
@@ -40,6 +40,7 @@ class StaffDetailViewModel(
                     photoUri = staff.photoUri
                     monthlyRate = staff.monthlyRate.toString()
                     joiningDate = staff.joiningDate
+                    isActive = staff.isActive
                 }
             }
         }
@@ -57,7 +58,8 @@ class StaffDetailViewModel(
             photoUri = photoUri,
             dailyRate = computedDailyRate,
             monthlyRate = rate,
-            joiningDate = joiningDate
+            joiningDate = joiningDate,
+            isActive = isActive
         )
         viewModelScope.launch {
             if (staffId == null) {
