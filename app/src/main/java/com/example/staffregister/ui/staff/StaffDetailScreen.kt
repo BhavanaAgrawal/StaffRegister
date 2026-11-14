@@ -80,9 +80,11 @@ fun StaffDetailScreen(
         monthlyRate = viewModel.monthlyRate,
         joiningDate = viewModel.joiningDate,
         isActive = viewModel.isActive,
+        leavingDate = viewModel.leavingDate,
         onMonthlyRateChange = { viewModel.monthlyRate = it },
         onJoiningDateChange = { viewModel.joiningDate = it },
         onIsActiveChange = { viewModel.isActive = it },
+        onLeavingDateChange = { viewModel.leavingDate = it },
         photoUri = viewModel.photoUri,
         onPhotoClick = { showCamera = true },
         onSaveClick = { viewModel.saveStaff(onSaveSuccess) },
@@ -104,9 +106,11 @@ fun StaffDetailContent(
     monthlyRate: String,
     joiningDate: Long,
     isActive: Boolean,
+    leavingDate: Long?,
     onMonthlyRateChange: (String) -> Unit,
     onJoiningDateChange: (Long) -> Unit,
     onIsActiveChange: (Boolean) -> Unit,
+    onLeavingDateChange: (Long?) -> Unit,
     photoUri: String?,
     onPhotoClick: () -> Unit,
     onSaveClick: () -> Unit,
@@ -308,6 +312,66 @@ fun StaffDetailContent(
                 )
             }
 
+            if (!isActive) {
+                OutlinedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            val cal = Calendar.getInstance().apply { 
+                                timeInMillis = leavingDate ?: System.currentTimeMillis() 
+                            }
+                            DatePickerDialog(
+                                context,
+                                { _, year, month, dayOfMonth ->
+                                    val newCal = Calendar.getInstance().apply {
+                                        set(Calendar.YEAR, year)
+                                        set(Calendar.MONTH, month)
+                                        set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                    }
+                                    onLeavingDateChange(newCal.timeInMillis)
+                                },
+                                cal.get(Calendar.YEAR),
+                                cal.get(Calendar.MONTH),
+                                cal.get(Calendar.DAY_OF_MONTH)
+                            ).show()
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Leaving Date", style = MaterialTheme.typography.labelSmall)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = leavingDate?.let { dateFormat.format(Date(it)) } ?: "Select Date",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "SELECT",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Icon(
+                                Icons.Rounded.CalendarMonth,
+                                contentDescription = "Select Leaving Date",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
@@ -335,9 +399,11 @@ fun StaffDetailScreenAddPreview() {
             monthlyRate = "",
             joiningDate = System.currentTimeMillis(),
             isActive = true,
+            leavingDate = null,
             onMonthlyRateChange = {},
             onJoiningDateChange = {},
             onIsActiveChange = {},
+            onLeavingDateChange = {},
             photoUri = null,
             onPhotoClick = {},
             onSaveClick = {},
@@ -361,9 +427,11 @@ fun StaffDetailScreenEditPreview() {
             monthlyRate = "4000",
             joiningDate = System.currentTimeMillis(),
             isActive = true,
+            leavingDate = null,
             onMonthlyRateChange = {},
             onJoiningDateChange = {},
             onIsActiveChange = {},
+            onLeavingDateChange = {},
             photoUri = null,
             onPhotoClick = {},
             onSaveClick = {},

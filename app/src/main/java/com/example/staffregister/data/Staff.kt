@@ -14,5 +14,6 @@ data class Staff(
     val dailyRate: Double = 0.0,
     val monthlyRate: Double = 0.0,
     val joiningDate: Long = System.currentTimeMillis(),
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    val leavingDate: Long? = null
 )

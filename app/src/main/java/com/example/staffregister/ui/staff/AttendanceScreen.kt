@@ -196,6 +196,7 @@ fun AttendanceScreenContent(
             if (selectedTabIndex == 0) {
                 // Monthly Calendar View
                 MonthlyCalendarView(
+                    staff = staff,
                     absenceList = absenceList,
                     onMarkPresentForDate = onMarkPresentForDate,
                     onRecordAbsenceForDate = onRecordAbsenceForDate
@@ -813,6 +814,7 @@ fun MarkPaymentDoneDialog(
 
 @Composable
 fun MonthlyCalendarView(
+    staff: Staff?,
     absenceList: List<Attendance>,
     onMarkPresentForDate: (Long) -> Unit,
     onRecordAbsenceForDate: (Long, String, Int) -> Unit,
@@ -836,6 +838,12 @@ fun MonthlyCalendarView(
     val todayCal = Calendar.getInstance()
     val isCurrentMonth = todayCal.get(Calendar.MONTH) == currentMonth && todayCal.get(Calendar.YEAR) == currentYear
     val todayDay = if (isCurrentMonth) todayCal.get(Calendar.DAY_OF_MONTH) else if (calendarState.before(todayCal)) 31 else 0
+
+    val leavingCal = staff?.leavingDate?.let {
+        if (!staff.isActive) {
+            Calendar.getInstance().apply { timeInMillis = it }
+        } else null
+    }
 
     if (editingDateInMillis != null) {
         EditAttendanceDialog(
@@ -930,7 +938,15 @@ fun MonthlyCalendarView(
                             } else {
                                 val isAbsent = isDayAbsent(dayNumber, currentMonth, currentYear, absenceList)
                                 val isFuture = if (isCurrentMonth) dayNumber > todayDay else calendarState.after(todayCal)
-                                val isPresent = !isAbsent && !isFuture
+                                
+                                val isAfterLeaving = leavingCal != null && (
+                                    currentYear > leavingCal.get(Calendar.YEAR) ||
+                                    (currentYear == leavingCal.get(Calendar.YEAR) && currentMonth > leavingCal.get(Calendar.MONTH)) ||
+                                    (currentYear == leavingCal.get(Calendar.YEAR) && currentMonth == leavingCal.get(Calendar.MONTH) && dayNumber > leavingCal.get(Calendar.DAY_OF_MONTH))
+                                )
+                                
+                                val isNotInteractable = isFuture || isAfterLeaving
+                                val isPresent = !isAbsent && !isNotInteractable
 
                                 val bgColor = when {
                                     isAbsent -> Color(0xFFF44336)
@@ -950,7 +966,7 @@ fun MonthlyCalendarView(
                                         .padding(2.dp)
                                         .background(bgColor, shape = CircleShape)
                                         .then(
-                                            if (!isFuture) {
+                                            if (!isNotInteractable) {
                                                 Modifier.clickable {
                                                     val cellCal = (calendarState.clone() as Calendar).apply {
                                                         set(Calendar.DAY_OF_MONTH, dayNumber)

@@ -24,6 +24,7 @@ class StaffDetailViewModel(
     var monthlyRate by mutableStateOf("")
     var joiningDate by mutableStateOf(System.currentTimeMillis())
     var isActive by mutableStateOf(true)
+    var leavingDate by mutableStateOf<Long?>(null)
 
     fun updatePhoto(uri: Uri) {
         photoUri = uri.toString()
@@ -41,6 +42,7 @@ class StaffDetailViewModel(
                     monthlyRate = staff.monthlyRate.toString()
                     joiningDate = staff.joiningDate
                     isActive = staff.isActive
+                    leavingDate = staff.leavingDate
                 }
             }
         }
@@ -49,6 +51,15 @@ class StaffDetailViewModel(
     fun saveStaff(onSuccess: () -> Unit) {
         val rate = monthlyRate.toDoubleOrNull() ?: 0.0
         val computedDailyRate = if (rate > 0) rate / 30.0 else 0.0
+        
+        val finalLeavingDate = if (!isActive && leavingDate == null) {
+            System.currentTimeMillis()
+        } else if (isActive) {
+            null
+        } else {
+            leavingDate
+        }
+
         val staff = Staff(
             id = staffId ?: 0,
             name = name,
@@ -59,7 +70,8 @@ class StaffDetailViewModel(
             dailyRate = computedDailyRate,
             monthlyRate = rate,
             joiningDate = joiningDate,
-            isActive = isActive
+            isActive = isActive,
+            leavingDate = finalLeavingDate
         )
         viewModelScope.launch {
             if (staffId == null) {

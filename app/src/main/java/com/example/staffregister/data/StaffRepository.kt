@@ -146,10 +146,19 @@ class StaffRepository(
 
             val records = mutableListOf<MonthlySalaryRecord>()
             val calendar = Calendar.getInstance()
-
             val currentYear = calendar.get(Calendar.YEAR)
             val currentMonth = calendar.get(Calendar.MONTH)
             val today = calendar.get(Calendar.DAY_OF_MONTH)
+
+            val effectiveEndYear = if (!staff.isActive && staff.leavingDate != null) {
+                val endCal = Calendar.getInstance().apply { timeInMillis = staff.leavingDate }
+                endCal.get(Calendar.YEAR)
+            } else currentYear
+
+            val effectiveEndMonth = if (!staff.isActive && staff.leavingDate != null) {
+                val endCal = Calendar.getInstance().apply { timeInMillis = staff.leavingDate }
+                endCal.get(Calendar.MONTH)
+            } else currentMonth
 
             val joinDate = if (staff.joiningDate > 0) staff.joiningDate else System.currentTimeMillis()
             
@@ -181,13 +190,14 @@ class StaffRepository(
 
             val tempCal = Calendar.getInstance()
 
-            while (iterYear < currentYear || (iterYear == currentYear && iterMonth <= currentMonth)) {
+            while (iterYear < effectiveEndYear || (iterYear == effectiveEndYear && iterMonth <= effectiveEndMonth)) {
                 calIter.set(Calendar.YEAR, iterYear)
                 calIter.set(Calendar.MONTH, iterMonth)
                 calIter.set(Calendar.DAY_OF_MONTH, 1)
 
                 val daysInMonth = calIter.getActualMaximum(Calendar.DAY_OF_MONTH)
                 val isCurrentMonth = (iterYear == currentYear && iterMonth == currentMonth)
+                val isLeavingMonth = (!staff.isActive && staff.leavingDate != null && iterYear == effectiveEndYear && iterMonth == effectiveEndMonth)
 
                 val absentRecords = attendanceList.filter { att ->
                     !att.isPresent && tempCal.apply { timeInMillis = att.date }.run {
@@ -196,7 +206,14 @@ class StaffRepository(
                 }
                 val daysAbsent = absentRecords.sumOf { it.daysCount }
 
-                val elapsedDays = if (isCurrentMonth) today else daysInMonth
+                val elapsedDays = if (isLeavingMonth && staff.leavingDate != null) {
+                    tempCal.apply { timeInMillis = staff.leavingDate }.get(Calendar.DAY_OF_MONTH)
+                } else if (isCurrentMonth) {
+                    today
+                } else {
+                    daysInMonth
+                }
+                
                 val daysWorked = maxOf(0, elapsedDays - daysAbsent)
 
                 val dailyRate = if (staff.monthlyRate > 0) staff.monthlyRate / 30.0 else 0.0
