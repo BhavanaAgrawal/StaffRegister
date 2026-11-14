@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -63,9 +64,17 @@ fun StaffDetailScreen(
 
     StaffDetailContent(
         name = viewModel.name,
-        onNameChange = { viewModel.name = it },
+        onNameChange = { 
+            viewModel.name = it.split(" ").joinToString(" ") { word -> 
+                word.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
+            }
+        },
         role = viewModel.role,
-        onRoleChange = { viewModel.role = it },
+        onRoleChange = { 
+            viewModel.role = it.split(" ").joinToString(" ") { word -> 
+                word.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase(Locale.getDefault()) else char.toString() }
+            }
+        },
         contact = viewModel.contact,
         onContactChange = { viewModel.contact = it },
         dailyRate = viewModel.dailyRate,
@@ -172,7 +181,10 @@ fun StaffDetailContent(
                 onValueChange = onNameChange,
                 label = { Text("Full Name") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                )
             )
 
             OutlinedTextField(
@@ -180,7 +192,10 @@ fun StaffDetailContent(
                 onValueChange = onRoleChange,
                 label = { Text("Job Role") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Words,
+                    imeAction = ImeAction.Next
+                )
             )
 
             OutlinedTextField(
@@ -222,6 +237,7 @@ fun StaffDetailContent(
                 label = { Text("Credentials / Notes") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
                     imeAction = ImeAction.Done
                 ),
                 keyboardActions = KeyboardActions(

@@ -11,6 +11,9 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -115,12 +118,21 @@ fun StaffItem(
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.size(48.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Rounded.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                if (staff.photoUri != null) {
+                    AsyncImage(
+                        model = staff.photoUri,
+                        contentDescription = "Profile Photo",
+                        modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(16.dp))
