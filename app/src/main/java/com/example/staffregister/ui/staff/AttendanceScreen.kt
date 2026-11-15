@@ -1064,6 +1064,11 @@ fun EditAttendanceDialog(
     var reasonText by remember { mutableStateOf(existingRecord?.reason ?: "") }
     var daysText by remember { mutableStateOf(existingRecord?.daysCount?.toString() ?: "1") }
 
+    val daysCount = daysText.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val hasOverlap = remember(dateInMillis, daysCount, absenceList) {
+        if (isCurrentlyAbsent) false else hasAbsenceOverlap(dateInMillis, daysCount, absenceList)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -1151,7 +1156,11 @@ fun EditAttendanceDialog(
                             label = { Text("Number of Days") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
+                            singleLine = true,
+                            isError = hasOverlap,
+                            supportingText = if (hasOverlap) {
+                                { Text("These dates overlap with existing absences.") }
+                            } else null
                         )
                     }
                 } else {
@@ -1170,6 +1179,7 @@ fun EditAttendanceDialog(
         },
         confirmButton = {
             Button(
+                enabled = !hasOverlap,
                 onClick = {
                     if (selectedStatusIsPresent) {
                         if (isCurrentlyAbsent) {
@@ -1212,6 +1222,32 @@ fun findAbsenceRecordForDate(dateInMillis: Long, absenceList: List<Attendance>):
             targetDay in recordStartDay..recordEndDay
         } else false
     }
+}
+
+fun hasAbsenceOverlap(startDateInMillis: Long, daysCount: Int, absenceList: List<Attendance>): Boolean {
+    val recordCal = Calendar.getInstance()
+    for (record in absenceList) {
+        if (!record.isPresent) {
+            for (i in 0 until record.daysCount) {
+                recordCal.timeInMillis = record.date
+                recordCal.add(Calendar.DAY_OF_MONTH, i)
+                val recordYear = recordCal.get(Calendar.YEAR)
+                val recordDayOfYear = recordCal.get(Calendar.DAY_OF_YEAR)
+                
+                for (j in 0 until daysCount) {
+                    val checkCal = Calendar.getInstance().apply {
+                        timeInMillis = startDateInMillis
+                        add(Calendar.DAY_OF_MONTH, j)
+                    }
+                    if (checkCal.get(Calendar.YEAR) == recordYear && 
+                        checkCal.get(Calendar.DAY_OF_YEAR) == recordDayOfYear) {
+                        return true
+                    }
+                }
+            }
+        }
+    }
+    return false
 }
 
 @Composable
