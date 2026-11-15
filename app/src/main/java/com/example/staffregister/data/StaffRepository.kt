@@ -73,24 +73,54 @@ class StaffRepository(
         )
     }
 
-    suspend fun markPresentForDate(staffId: Long, date: Long) {
-        val targetCal = Calendar.getInstance().apply { timeInMillis = date }
-        val targetYear = targetCal.get(Calendar.YEAR)
-        val targetDayOfYear = targetCal.get(Calendar.DAY_OF_YEAR)
+    suspend fun markPresentForDate(staffId: Long, date: Long, daysCount: Int = 1) {
+        val targetCal = Calendar.getInstance()
+        
+        for (dayOffset in 0 until daysCount) {
+            targetCal.timeInMillis = date
+            targetCal.add(Calendar.DAY_OF_MONTH, dayOffset)
+            val targetYear = targetCal.get(Calendar.YEAR)
+            val targetDayOfYear = targetCal.get(Calendar.DAY_OF_YEAR)
 
-        val records = attendanceDao.getAttendanceListForStaff(staffId)
-        val recordCal = Calendar.getInstance()
+            val records = attendanceDao.getAttendanceListForStaff(staffId)
+            val recordCal = Calendar.getInstance()
 
-        for (record in records) {
-            if (!record.isPresent) {
-                recordCal.timeInMillis = record.date
-                val recordYear = recordCal.get(Calendar.YEAR)
-                val recordStartDay = recordCal.get(Calendar.DAY_OF_YEAR)
-
-                if (recordYear == targetYear) {
-                    val recordEndDay = recordStartDay + record.daysCount - 1
-                    if (targetDayOfYear in recordStartDay..recordEndDay) {
+            for (record in records) {
+                if (!record.isPresent) {
+                    var targetOffset = -1
+                    for (i in 0 until record.daysCount) {
+                        recordCal.timeInMillis = record.date
+                        recordCal.add(Calendar.DAY_OF_MONTH, i)
+                        
+                        if (recordCal.get(Calendar.YEAR) == targetYear && 
+                            recordCal.get(Calendar.DAY_OF_YEAR) == targetDayOfYear) {
+                            targetOffset = i
+                            break
+                        }
+                    }
+                    
+                    if (targetOffset != -1) {
                         attendanceDao.deleteAttendance(record)
+                        
+                        if (targetOffset > 0) {
+                            attendanceDao.insertAttendance(
+                                record.copy(
+                                    id = 0,
+                                    daysCount = targetOffset
+                                )
+                            )
+                        }
+                        if (targetOffset < record.daysCount - 1) {
+                            recordCal.timeInMillis = record.date
+                            recordCal.add(Calendar.DAY_OF_MONTH, targetOffset + 1)
+                            attendanceDao.insertAttendance(
+                                record.copy(
+                                    id = 0,
+                                    date = recordCal.timeInMillis,
+                                    daysCount = record.daysCount - targetOffset - 1
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -199,14 +229,7 @@ class StaffRepository(
                 val isCurrentMonth = (iterYear == currentYear && iterMonth == currentMonth)
                 val isLeavingMonth = (!staff.isActive && staff.leavingDate != null && iterYear == effectiveEndYear && iterMonth == effectiveEndMonth)
 
-                val absentRecords = attendanceList.filter { att ->
-                    !att.isPresent && tempCal.apply { timeInMillis = att.date }.run {
-                        get(Calendar.YEAR) == iterYear && get(Calendar.MONTH) == iterMonth
-                    }
-                }
-                val daysAbsent = absentRecords.sumOf { it.daysCount }
-
-                val elapsedDays = if (isLeavingMonth && staff.leavingDate != null) {
+                val endDay = if (isLeavingMonth && staff.leavingDate != null) {
                     tempCal.apply { timeInMillis = staff.leavingDate }.get(Calendar.DAY_OF_MONTH)
                 } else if (isCurrentMonth) {
                     today
@@ -214,17 +237,37 @@ class StaffRepository(
                     daysInMonth
                 }
                 
-                val daysWorked = maxOf(0, elapsedDays - daysAbsent)
+                val startDayOfMonth = if (iterYear == startYear && iterMonth == startMonth) {
+                    tempCal.apply { timeInMillis = joinDate }.get(Calendar.DAY_OF_MONTH)
+                } else {
+                    1
+                }
+                
+                val uniqueAbsentDaysInMonth = mutableSetOf<Int>()
+                for (att in attendanceList) {
+                    if (!att.isPresent) {
+                        for (i in 0 until att.daysCount) {
+                            val absentDayCal = Calendar.getInstance().apply {
+                                timeInMillis = att.date
+                                add(Calendar.DAY_OF_MONTH, i)
+                            }
+                            if (absentDayCal.get(Calendar.YEAR) == iterYear && absentDayCal.get(Calendar.MONTH) == iterMonth) {
+                                val dayOfMonth = absentDayCal.get(Calendar.DAY_OF_MONTH)
+                                if (dayOfMonth in startDayOfMonth..endDay) {
+                                    uniqueAbsentDaysInMonth.add(dayOfMonth)
+                                }
+                            }
+                        }
+                    }
+                }
+                val daysAbsent = uniqueAbsentDaysInMonth.size
+
+                val totalDaysInRange = maxOf(0, endDay - startDayOfMonth + 1)
+                val daysWorked = maxOf(0, totalDaysInRange - daysAbsent)
 
                 val dailyRate = if (staff.monthlyRate > 0) staff.monthlyRate / 30.0 else 0.0
-
-                val calculatedGrossSalary = if (daysAbsent == 0) {
-                    staff.monthlyRate
-                } else if (daysAbsent > 0) {
-                    maxOf(0.0, staff.monthlyRate - daysAbsent * dailyRate)
-                } else {
-                    0.0
-                }
+                
+                val calculatedGrossSalary = daysWorked * dailyRate
 
                 val advanceRecords = advanceList.filter { adv ->
                     tempCal.apply { timeInMillis = adv.date }.run {
@@ -285,11 +328,14 @@ class StaffRepository(
         return getMonthlySalaryRecords(staffId).map { records ->
             val currentRecord = records.firstOrNull()
             if (currentRecord != null) {
+                val advanceTaken = if (currentRecord.advanceDeducted > 0) currentRecord.advanceDeducted else 0.0
+                val carryForward = if (currentRecord.carryForwardFromPrevious < 0) currentRecord.carryForwardFromPrevious else 0.0
+                
                 MonthlyStats(
                     daysPresent = currentRecord.daysWorked,
                     daysAbsent = currentRecord.daysAbsent,
                     totalSalary = currentRecord.grossSalary,
-                    totalAdvance = currentRecord.advanceDeducted - if (currentRecord.carryForwardFromPrevious < 0) currentRecord.carryForwardFromPrevious else 0.0,
+                    totalAdvance = advanceTaken - carryForward,
                     netSalary = currentRecord.netPayable
                 )
             } else {

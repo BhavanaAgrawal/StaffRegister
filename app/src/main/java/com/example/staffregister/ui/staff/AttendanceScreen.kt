@@ -64,7 +64,7 @@ fun AttendanceScreen(
         selectedDate = viewModel.selectedDate,
         onSelectedDateChange = { viewModel.selectedDate = it },
         onRecordAbsence = { viewModel.recordAbsence() },
-        onMarkPresentForDate = { viewModel.markPresentForDate(it) },
+        onMarkPresentForDate = { date, days -> viewModel.markPresentForDate(date, days) },
         onRecordAbsenceForDate = { date, reason, days -> viewModel.recordAbsenceForDate(date, reason, days) },
         onDeleteAbsence = { viewModel.deleteAbsence(it) },
         advanceAmountInput = viewModel.advanceAmountInput,
@@ -96,7 +96,7 @@ fun AttendanceScreenContent(
     selectedDate: Long,
     onSelectedDateChange: (Long) -> Unit,
     onRecordAbsence: () -> Unit,
-    onMarkPresentForDate: (Long) -> Unit,
+    onMarkPresentForDate: (Long, Int) -> Unit,
     onRecordAbsenceForDate: (Long, String, Int) -> Unit,
     onDeleteAbsence: (Attendance) -> Unit,
     advanceAmountInput: String,
@@ -391,6 +391,7 @@ fun SalaryAndPaymentsView(
     val totalPaid = monthlySalaryRecords.sumOf { it.amountPaid }
 
     var selectedRecordForPayment by remember { mutableStateOf<MonthlySalaryRecord?>(null) }
+    var recordToMarkUnpaid by remember { mutableStateOf<MonthlySalaryRecord?>(null) }
 
     if (selectedRecordForPayment != null) {
         MarkPaymentDoneDialog(
@@ -399,6 +400,30 @@ fun SalaryAndPaymentsView(
             onConfirm = { amount, notes ->
                 onMarkSalaryPaid(selectedRecordForPayment!!, amount, notes)
                 selectedRecordForPayment = null
+            }
+        )
+    }
+    
+    if (recordToMarkUnpaid != null) {
+        AlertDialog(
+            onDismissRequest = { recordToMarkUnpaid = null },
+            title = { Text("Confirm Mark as Unpaid") },
+            text = { Text("Are you sure you want to mark ${recordToMarkUnpaid!!.monthName} as unpaid?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onMarkSalaryUnpaid(recordToMarkUnpaid!!)
+                        recordToMarkUnpaid = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { recordToMarkUnpaid = null }) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -499,7 +524,7 @@ fun SalaryAndPaymentsView(
                     MonthlySalaryCard(
                         record = record,
                         onMarkDoneClick = { selectedRecordForPayment = record },
-                        onMarkUnpaidClick = { onMarkSalaryUnpaid(record) }
+                        onMarkUnpaidClick = { recordToMarkUnpaid = record }
                     )
                 }
             }
@@ -816,7 +841,7 @@ fun MarkPaymentDoneDialog(
 fun MonthlyCalendarView(
     staff: Staff?,
     absenceList: List<Attendance>,
-    onMarkPresentForDate: (Long) -> Unit,
+    onMarkPresentForDate: (Long, Int) -> Unit,
     onRecordAbsenceForDate: (Long, String, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -845,13 +870,19 @@ fun MonthlyCalendarView(
         } else null
     }
 
+    val joiningCal = staff?.let {
+        Calendar.getInstance().apply { 
+            timeInMillis = if (it.joiningDate > 0) it.joiningDate else System.currentTimeMillis()
+        }
+    }
+
     if (editingDateInMillis != null) {
         EditAttendanceDialog(
             dateInMillis = editingDateInMillis!!,
             absenceList = absenceList,
             onDismiss = { editingDateInMillis = null },
-            onMarkPresent = {
-                onMarkPresentForDate(editingDateInMillis!!)
+            onMarkPresent = { days ->
+                onMarkPresentForDate(editingDateInMillis!!, days)
             },
             onMarkAbsent = { reason, days ->
                 onRecordAbsenceForDate(editingDateInMillis!!, reason, days)
@@ -945,7 +976,13 @@ fun MonthlyCalendarView(
                                     (currentYear == leavingCal.get(Calendar.YEAR) && currentMonth == leavingCal.get(Calendar.MONTH) && dayNumber > leavingCal.get(Calendar.DAY_OF_MONTH))
                                 )
                                 
-                                val isNotInteractable = isFuture || isAfterLeaving
+                                val isBeforeJoining = joiningCal != null && (
+                                    currentYear < joiningCal.get(Calendar.YEAR) ||
+                                    (currentYear == joiningCal.get(Calendar.YEAR) && currentMonth < joiningCal.get(Calendar.MONTH)) ||
+                                    (currentYear == joiningCal.get(Calendar.YEAR) && currentMonth == joiningCal.get(Calendar.MONTH) && dayNumber < joiningCal.get(Calendar.DAY_OF_MONTH))
+                                )
+                                
+                                val isNotInteractable = isFuture || isAfterLeaving || isBeforeJoining
                                 val isPresent = !isAbsent && !isNotInteractable
 
                                 val bgColor = when {
@@ -1014,7 +1051,7 @@ fun EditAttendanceDialog(
     dateInMillis: Long,
     absenceList: List<Attendance>,
     onDismiss: () -> Unit,
-    onMarkPresent: () -> Unit,
+    onMarkPresent: (Int) -> Unit,
     onMarkAbsent: (String, Int) -> Unit
 ) {
     val dateFormat = SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault())
@@ -1072,23 +1109,62 @@ fun EditAttendanceDialog(
                 }
 
                 if (!selectedStatusIsPresent) {
-                    OutlinedTextField(
-                        value = reasonText,
-                        onValueChange = { reasonText = it },
-                        label = { Text("Reason for Absence") },
-                        placeholder = { Text("e.g. Sick Leave, Personal") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                    if (isCurrentlyAbsent) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "This date is already marked absent.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "Reason: ${existingRecord?.reason ?: "N/A"}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Text(
+                                    "Duration: ${existingRecord?.daysCount ?: 1} Day(s)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = reasonText,
+                            onValueChange = { reasonText = it },
+                            label = { Text("Reason for Absence") },
+                            placeholder = { Text("e.g. Sick Leave, Personal") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
 
-                    OutlinedTextField(
-                        value = daysText,
-                        onValueChange = { daysText = it },
-                        label = { Text("Number of Days") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
+                        OutlinedTextField(
+                            value = daysText,
+                            onValueChange = { daysText = it },
+                            label = { Text("Number of Days") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                } else {
+                    if (isCurrentlyAbsent) {
+                        OutlinedTextField(
+                            value = daysText,
+                            onValueChange = { daysText = it },
+                            label = { Text("Number of Days to Mark Present") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
                 }
             }
         },
@@ -1096,16 +1172,21 @@ fun EditAttendanceDialog(
             Button(
                 onClick = {
                     if (selectedStatusIsPresent) {
-                        onMarkPresent()
+                        if (isCurrentlyAbsent) {
+                            val days = daysText.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                            onMarkPresent(days)
+                        }
                     } else {
-                        val days = daysText.toIntOrNull()?.coerceAtLeast(1) ?: 1
-                        val reason = reasonText.trim().ifEmpty { "Absent" }
-                        onMarkAbsent(reason, days)
+                        if (!isCurrentlyAbsent) {
+                            val days = daysText.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                            val reason = reasonText.trim().ifEmpty { "Absent" }
+                            onMarkAbsent(reason, days)
+                        }
                     }
                     onDismiss()
                 }
             ) {
-                Text("Save")
+                Text(if (selectedStatusIsPresent && isCurrentlyAbsent) "Mark Present" else if (!isCurrentlyAbsent) "Save" else "Close")
             }
         },
         dismissButton = {
@@ -1147,16 +1228,36 @@ fun LegendItem(color: Color, label: String) {
 }
 
 fun isDayAbsent(day: Int, month: Int, year: Int, absenceList: List<Attendance>): Boolean {
-    val cal = Calendar.getInstance()
+    val targetCal = Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, month)
+        set(Calendar.DAY_OF_MONTH, day)
+        set(Calendar.HOUR_OF_DAY, 12)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    
+    val targetDayOfYear = targetCal.get(Calendar.DAY_OF_YEAR)
+    val targetYear = targetCal.get(Calendar.YEAR)
+
+    val recordCal = Calendar.getInstance()
+    
     return absenceList.any { record ->
-        cal.timeInMillis = record.date
-        val recordMonth = cal.get(Calendar.MONTH)
-        val recordYear = cal.get(Calendar.YEAR)
-        if (recordMonth == month && recordYear == year) {
-            val startDay = cal.get(Calendar.DAY_OF_MONTH)
-            val endDay = startDay + record.daysCount - 1
-            day in startDay..endDay
-        } else false
+        if (record.isPresent) return@any false
+        
+        var isMatch = false
+        for (i in 0 until record.daysCount) {
+            recordCal.timeInMillis = record.date
+            recordCal.add(Calendar.DAY_OF_MONTH, i)
+            
+            if (recordCal.get(Calendar.YEAR) == targetYear && 
+                recordCal.get(Calendar.DAY_OF_YEAR) == targetDayOfYear) {
+                isMatch = true
+                break
+            }
+        }
+        isMatch
     }
 }
 
@@ -1365,7 +1466,7 @@ fun AttendanceScreenPreview() {
             selectedDate = System.currentTimeMillis(),
             onSelectedDateChange = {},
             onRecordAbsence = {},
-            onMarkPresentForDate = {},
+            onMarkPresentForDate = { _, _ -> },
             onRecordAbsenceForDate = { _, _, _ -> },
             onDeleteAbsence = {},
             advanceAmountInput = "2000",

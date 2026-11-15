@@ -73,9 +73,9 @@ class AttendanceViewModel(
         }
     }
 
-    fun markPresentForDate(dateInMillis: Long) {
+    fun markPresentForDate(dateInMillis: Long, daysCount: Int = 1) {
         viewModelScope.launch {
-            repository.markPresentForDate(staffId, dateInMillis)
+            repository.markPresentForDate(staffId, dateInMillis, daysCount)
         }
     }
 
