@@ -265,9 +265,18 @@ class StaffRepository(
                 val totalDaysInRange = maxOf(0, endDay - startDayOfMonth + 1)
                 val daysWorked = maxOf(0, totalDaysInRange - daysAbsent)
 
-                val dailyRate = if (staff.monthlyRate > 0) staff.monthlyRate / 30.0 else 0.0
-                
-                val calculatedGrossSalary = daysWorked * dailyRate
+                // 1. Calculate Standard Penalty
+                val standardDailyPenalty = if (staff.monthlyRate > 0) staff.monthlyRate / 30.0 else 0.0
+
+                // 2. Calculate the Ratio of the month completed
+                val completionRatio = totalDaysInRange.toDouble() / daysInMonth.toDouble()
+
+                // 3. Calculate Base Salary for the elapsed period
+                val baseAccruedSalary = staff.monthlyRate * completionRatio
+
+                // 4. Subtract absences to get final Gross Salary
+                val absencePenalty = daysAbsent * standardDailyPenalty
+                val calculatedGrossSalary = maxOf(0.0, baseAccruedSalary - absencePenalty)
 
                 val advanceRecords = advanceList.filter { adv ->
                     tempCal.apply { timeInMillis = adv.date }.run {
@@ -302,6 +311,7 @@ class StaffRepository(
                         daysInMonth = daysInMonth,
                         daysWorked = daysWorked,
                         daysAbsent = daysAbsent,
+                       // grossSalary = calculatedGrossSalary,
                         grossSalary = calculatedGrossSalary,
                         advanceDeducted = advanceDeducted,
                         carryForwardFromPrevious = carryForward,
